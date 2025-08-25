@@ -1,0 +1,12 @@
+.yaml
+.json
+
+/infra
+
+/infra/templates
+/infra/templates/*.yaml
+
+/infra/parameters
+/infra/parameters/*.json
+
+# The above is just a temporary .gitignore to safeguard files while developing the core foundation

@@ -1,0 +1,40 @@
+#### This project is created by mymh13 (N.Häll) for the CLO24 - Skalbara Molnapplikationer course during the Clouddeveloper Program at Campus Mölndal. (2025)  
+  
+This project will primarily be in Swedish.  
+  
+Uppgiftsbeskrivning på svenska följer längre ner.
+  
+Normally I primarily work using English, but this is just a repo for a school assignment where I chose to use Swedish for once. The assignment is to create a scaleable AWS-runtime environment hosting Wordpress.  
+  
+Denna uppgift beskrivs i introduktionen till uppgiftens pdf (kommer bifogas in i detta repo senare, det ligger externt för stunden):  
+  
+"Målet med själva uppgiften är att kunna bygga en driftsmiljö i AWS som kan hosta Wordpress: miljön skall vara skalbar, fungerande och ha en grundläggande robusthet med viss säkerhet.
+Avgränsningen för uppgiften nämns specifikt, därför har jag för avsikt att presentera ett ”hur bygger vi vidare på detta?”-avsnitt som kan fungera på tre sätt:  
+  
+- dels visar den på grundläggande kunskap
+- dels visar det att skalbarhetsmålet nås och finns med redan initialt
+- dels så vill jag visa på en flexibilitet: jag bygger gärna själv mer avancerade lösningar och testar teknik, men:  
+  
+Ibland är det absolut nödvändigt att följa en uppgiftsbeskrivning, och där kan dokumentationen fungera som ett bra område att fånga upp potentiella förslag till förbättringar. Jag vill gärna simulera det i denna uppgift."  
+  
+---
+#### Repository Layout
+```yaml
+/infra
+    /templates
+        root.yaml # master stack – orchestrates Nested Stacks
+        00-network.yaml # VPC, subnets, IGW, NATGW, routes
+        20-alb.yaml # ALB, Target Group, Listener, SG
+        30-efs.yaml # EFS, Mount Targets, SG
+        40-rds-mariadb.yaml # DB Subnet Group, SG, MariaDB instance
+        50-asg-wordpress.yaml # LT + ASG for LAMP/WordPress, SG, scaling policy
+        60-bastion-deploy.yaml # Deploy/Bastion EC2 in public subnet (SSH), SG
+    /parameters
+    dev.json # example parameter set for root.yaml
+```
+  
+#### Deploy flow:
+  
+1. Upload the six child templates (the numbered ones) to an S3 bucket.
+2. Update root.yaml TemplateURLs or use local packaging (aws cloudformation package), then create the single root stack.
+3. Deleting the root tears everything down.

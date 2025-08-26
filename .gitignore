@@ -1,12 +1,16 @@
-.yaml
-.json
+# Keep all the templates in the repo
+!/infra/
+!/infra/templates/
+!/infra/templates/*.yaml
 
-/infra
+# Parameters kept locally
+/infra/parameters/dev.params.json
 
-/infra/templates
-/infra/templates/*.yaml
+# Allow a specific example without secrets
+!infra/parameters/example.dev.json
 
-/infra/parameters
-/infra/parameters/*.json
-
-# The above is just a temporary .gitignore to safeguard files while developing the core foundation
+# Cleaning up common trash-files
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

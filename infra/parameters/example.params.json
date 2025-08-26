@@ -1,0 +1,30 @@
+[
+    {
+        "ParameterKey": "StackNamePrefix",
+        "ParameterValue": "stack-name"
+    },
+    {
+        "ParameterKey": "TemplateBucket",
+        "ParameterValue": "wordpress-iac-<account-id>-<region>"
+    },
+    {
+        "ParameterKey": "TemplatePrefix",
+        "ParameterValue": "wordpress-iac/templates/"
+    },
+    {
+        "ParameterKey": "VpcCidr",
+        "ParameterValue": "10.20.0.0/16"
+    },
+    {
+        "ParameterKey": "PublicSubnetCidrs",
+        "ParameterValue": "10.20.0.0/24,10.20.1.0/24"
+    },
+    {
+        "ParameterKey": "PrivateAppSubnetCidrs",
+        "ParameterValue": "10.20.10.0/24,10.20.11.0/24"
+    },
+    {
+        "ParameterKey": "PrivateDbSubnetCidrs",
+        "ParameterValue": "10.20.20.0/24,10.20.21.0/24"
+    }
+]

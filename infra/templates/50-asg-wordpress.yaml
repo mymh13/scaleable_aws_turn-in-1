@@ -1,0 +1,16 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: WordPress web tier (ASG) (scaffold)
+
+Parameters:
+  StackNamePrefix: { Type: String }
+  VpcId: { Type: String }
+  PrivateAppSubnetIds: { Type: CommaDelimitedList }
+  TargetGroupArn: { Type: String }
+  EfsFileSystemId: { Type: String }
+  DBEndpoint: { Type: String }
+  DBName: { Type: String }
+  DBUsername: { Type: String }
+  DBPassword: { Type: String, NoEcho: true }
+
+Resources: {}
+Outputs: {}

@@ -1,0 +1,134 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: VPC med 2x public, 2x private app, 2x private db subnets, IGW, NAT, routing
+
+Parameters:
+  StackNamePrefix: { Type: String }
+  VpcCidr: { Type: String }
+  PublicSubnetCidrs: { Type: CommaDelimitedList }
+  PrivateAppSubnetCidrs: { Type: CommaDelimitedList }
+  PrivateDbSubnetCidrs: { Type: CommaDelimitedList }
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags: [{ Key: Name, Value: !Sub '${StackNamePrefix}-vpc' }]
+
+  IGW:
+    Type: AWS::EC2::InternetGateway
+  IGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref IGW
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [0, !Ref PublicSubnetCidrs]
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags: [{ Key: Name, Value: !Sub '${StackNamePrefix}-public-a' }]
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [1, !Ref PublicSubnetCidrs]
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags: [{ Key: Name, Value: !Sub '${StackNamePrefix}-public-b' }]
+
+  EIPA:
+    Type: AWS::EC2::EIP
+    Properties: { Domain: vpc }
+  NATGW:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt EIPA.AllocationId
+      SubnetId: !Ref PublicSubnetA
+
+  PrivateAppSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [0, !Ref PrivateAppSubnetCidrs]
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags: [{ Key: Name, Value: !Sub '${StackNamePrefix}-app-a' }]
+  PrivateAppSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [1, !Ref PrivateAppSubnetCidrs]
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags: [{ Key: Name, Value: !Sub '${StackNamePrefix}-app-b' }]
+
+  PrivateDbSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [0, !Ref PrivateDbSubnetCidrs]
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags: [{ Key: Name, Value: !Sub '${StackNamePrefix}-db-a' }]
+  PrivateDbSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [1, !Ref PrivateDbSubnetCidrs]
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags: [{ Key: Name, Value: !Sub '${StackNamePrefix}-db-b' }]
+
+  PublicRT:
+    Type: AWS::EC2::RouteTable
+    Properties: { VpcId: !Ref VPC }
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRT
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
+  PublicAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref PublicSubnetA, RouteTableId: !Ref PublicRT }
+  PublicAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref PublicSubnetB, RouteTableId: !Ref PublicRT }
+
+  PrivateAppRT:
+    Type: AWS::EC2::RouteTable
+    Properties: { VpcId: !Ref VPC }
+  PrivateAppRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateAppRT
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGW
+  PrivateAppAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref PrivateAppSubnetA, RouteTableId: !Ref PrivateAppRT }
+  PrivateAppAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref PrivateAppSubnetB, RouteTableId: !Ref PrivateAppRT }
+
+  PrivateDbRT:
+    Type: AWS::EC2::RouteTable
+    Properties: { VpcId: !Ref VPC }
+  PrivateDbAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref PrivateDbSubnetA, RouteTableId: !Ref PrivateDbRT }
+  PrivateDbAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref PrivateDbSubnetB, RouteTableId: !Ref PrivateDbRT }
+
+Outputs:
+  VpcId:
+    Value: !Ref VPC
+  PublicSubnetIds:
+    Value: !Join [",", [!Ref PublicSubnetA, !Ref PublicSubnetB]]
+  PrivateAppSubnetIds:
+    Value: !Join [",", [!Ref PrivateAppSubnetA, !Ref PrivateAppSubnetB]]
+  PrivateDbSubnetIds:
+    Value: !Join [",", [!Ref PrivateDbSubnetA, !Ref PrivateDbSubnetB]]

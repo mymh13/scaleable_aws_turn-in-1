@@ -38,3 +38,18 @@ Ibland är det absolut nödvändigt att följa en uppgiftsbeskrivning, och där 
 1. Upload the six child templates (the numbered ones) to an S3 bucket.
 2. Update root.yaml TemplateURLs or use local packaging (aws cloudformation package), then create the single root stack.
 3. Deleting the root tears everything down.
+
+#### Always validate template yaml-updates:
+  
+```bash
+aws cloudformation validate-template --template-body file://infra/templates/root.yaml
+```
+  
+#### Create the stack:
+  
+```bash
+$ aws cloudformation create-stack \
+  --stack-name wp-cf-root \
+  --template-url https://s3.eu-west-1.amazonaws.com/wordpress-iac-<account-id>-eu-west-1/wordpress-iac/templates/root.yaml \  
+  --parameters file://infra/parameters/dev.params.json
+  ```

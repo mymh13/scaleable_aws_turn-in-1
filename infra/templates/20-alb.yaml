@@ -1,0 +1,10 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ALB + Target Group + Security Groups (scaffold)
+
+Parameters:
+  StackNamePrefix: { Type: String }
+  VpcId: { Type: String }
+  PublicSubnetIds: { Type: CommaDelimitedList }
+
+Resources: {}
+Outputs: {}

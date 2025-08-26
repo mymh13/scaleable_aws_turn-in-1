@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Root stack for WordPress infra using nested stacks
+
+Parameters:
+  StackNamePrefix:
+    Type: String
+    Default: wp-cf
+    Description: Prefix for naming resources
+  TemplateBucket:
+    Type: String
+    Description: S3 bucket name where child templates are stored (wordpress-iac-<account-id>-<region>)
+  TemplatePrefix:
+    Type: String
+    Default: wordpress-iac/templates/
+    Description: Key prefix inside the S3 bucket (directory path)
+  VpcCidr:
+    Type: String
+    Default: 10.20.0.0/16
+  PublicSubnetCidrs:
+    Type: String
+    Default: 10.20.0.0/24,10.20.1.0/24
+  PrivateAppSubnetCidrs:
+    Type: String
+    Default: 10.20.20.0/24, 10.20.21.0/24
+  PrivateDbSubnetCidrs:
+    Type: String
+    Default: 10.20.20.0/24,10.20.21.0/24
+
+Resources:
+  NetworkStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://s3.${AWS::Region}.amazonaws.com/${TemplateBucket}/${TemplatePrefix}00-network.yaml'
+      Parameters:
+        StackNamePrefix: !Ref StackNamePrefix
+        VpcCidr: !Ref VpcCidr
+        PublicSubnetCidrs: !Ref PublicSubnetCidrs
+        PrivateAppSubnetCidrs: !Ref PrivateAppSubnetCidrs
+        PrivateDbSubnetCidrs: !Ref PrivateDbSubnetCidrs
+
+Outputs:
+  VpcId:
+    Value: !GetAtt NetworkStack.Outputs.VpcId
+  PublicSubnetIds:
+    Value: !GetAtt NetworkStack.Outputs.PublicSubnetIds
+  PrivateAppSubnetIds:
+    Value: !GetAtt NetworkStack.Outputs.PrivateAppSubnetIds
+  PrivateDbSubnetIds:
+    Value: !GetAtt NetworkStack.Outputs.PrivateDbSubnetIds

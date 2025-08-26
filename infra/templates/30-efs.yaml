@@ -1,0 +1,10 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EFS filesystem + mount targets (scaffold)
+
+Parameters:
+  StackNamePrefix: { Type: String }
+  VpcId: { Type: String }
+  PrivateAppSubnetIds: { Type: CommaDelimitedList }
+
+Resources: {}
+Outputs: {}

@@ -1,10 +1,31 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: ALB + Target Group + Security Groups (scaffold)
+Description: ALB + Target Group + (senare) Security Groups och Listener – stegvis bygge
 
 Parameters:
-  StackNamePrefix: { Type: String }
-  VpcId: { Type: String }
-  PublicSubnetIds: { Type: CommaDelimitedList }
+  StackNamePrefix:
+    Type: String
+    Description: Prefix för resursnamn (t.ex. wp-cf)
+  VpcId:
+    Type: String
+    Description: VPC där ALB ska ligga
+  PublicSubnetIds:
+    Type: CommaDelimitedList
+    Description: Två (eller fler) publika subnät i olika AZ för ALB
 
-Resources: {}
-Outputs: {}
+Resources:
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB SG - tillåt HTTP från Internet
+      VpcId: !Ref VpcId
+      SecurityGroupIngress: # Intrafik till ALB, publikt internet
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress: # Ut från ALB, IpProtocol: -1 betyder alla protokoll, alla portar
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${StackNamePrefix}-alb-sg'

@@ -48,8 +48,17 @@ aws cloudformation validate-template --template-body file://infra/templates/root
 #### Create the stack:
   
 ```bash
-$ aws cloudformation create-stack \
+aws cloudformation create-stack \
   --stack-name wp-cf-root \
   --template-url https://s3.eu-west-1.amazonaws.com/wordpress-iac-<account-id>-eu-west-1/wordpress-iac/templates/root.yaml \  
   --parameters file://infra/parameters/dev.params.json
   ```
+
+---
+  
+# IMPORTANT
+  
+Below is just a bash-template I use to copy-paste code into Word to keep the formatting. Ignore!
+```bash
+aws cloudformation validate-template --template-body file://infra/templates/20-alb.yaml
+```

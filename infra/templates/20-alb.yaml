@@ -13,6 +13,19 @@ Parameters:
     Description: Två (eller fler) publika subnät i olika AZ för ALB
 
 Resources:
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub '${StackNamePrefix}-alb'
+      Scheme: internet-facing
+      Type: application
+      Subnets: !Ref PublicSubnetIds
+      SecurityGroups:
+        - !Ref AlbSecurityGroup
+      IpAddressType: ipv4
+      LoadBalancerAttributes:
+        - Key: deletion_protection.enabled
+          Value: "false"    # utvecklingsfasen: lättare att riva stacken
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -29,3 +42,26 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${StackNamePrefix}-alb-sg'
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${StackNamePrefix}-tg'
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 80
+      TargetType: instance
+      HealthCheckPath: /
+      Matcher:
+        HttpCode: '200-399'
+
+Outputs:
+  TargetGroupArn:
+    Value: !Ref TargetGroup
+    Description: ARN för Target Group
+  AlbArn:
+    Value: !Ref ALB
+    Description: ARN för Application Load Balancer
+  AlbDNS:
+    Value: !GetAtt ALB.DNSName
+    Description: Publik DNS för ALB

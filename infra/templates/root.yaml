@@ -37,6 +37,24 @@ Resources:
         PublicSubnetCidrs: !Ref PublicSubnetCidrs
         PrivateAppSubnetCidrs: !Ref PrivateAppSubnetCidrs
         PrivateDbSubnetCidrs: !Ref PrivateDbSubnetCidrs
+  AlbStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: NetworkStack
+    Properties:
+      TemplateURL: !Sub 'https://s3.${AWS::Region}.amazonaws.com/${TemplateBucket}/${TemplatePrefix}20-alb.yaml'
+      Parameters:
+        StackNamePrefix: !Ref StackNamePrefix
+        VpcId:            !GetAtt NetworkStack.Outputs.VpcId
+        PublicSubnetIds:  !GetAtt NetworkStack.Outputs.PublicSubnetIds
+  AsgStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: AlbStack
+    Properties:
+      TemplateURL: !Sub 'https://s3.${AWS::Region}.amazonaws.com/${TemplateBucket}/${TemplatePrefix}50-asg-wordpress.yaml'
+      Parameters:
+        StackNamePrefix:    !Ref StackNamePrefix
+        VpcId:              !GetAtt NetworkStack.Outputs.VpcId
+        AlbSecurityGroupId: !GetAtt AlbStack.Outputs.AlbSecurityGroupId
 
 Outputs:
   VpcId:
@@ -47,3 +65,17 @@ Outputs:
     Value: !GetAtt NetworkStack.Outputs.PrivateAppSubnetIds
   PrivateDbSubnetIds:
     Value: !GetAtt NetworkStack.Outputs.PrivateDbSubnetIds
+  AlbDNS:
+    Value: !GetAtt AlbStack.Outputs.AlbDNS
+    Description: Public DNS för ALB
+  AlbArn:
+    Value: !GetAtt AlbStack.Outputs.AlbArn
+  TargetGroupArn:
+    Value: !GetAtt AlbStack.Outputs.TargetGroupArn
+  ListenerArn:
+    Value: !GetAtt AlbStack.Outputs.ListenerArn
+  AlbSecurityGroupId:
+    Value: !GetAtt AlbStack.Outputs.AlbSecurityGroupId
+  AppSecurityGroupId:
+    Value: !GetAtt AsgStack.Outputs.AppSecurityGroupId
+    Description: SG-ID för webbinstanser (används av LT/ASG, namnet hintar om det)

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: VPC med 2x public, 2x private app, 2x private db subnets, IGW, NAT, routing
+Description: VPC med 2x public, 2x private app, 2x private db subnets, IGW, routing
 
 Parameters:
   StackNamePrefix: { Type: String }
@@ -41,15 +41,6 @@ Resources:
       MapPublicIpOnLaunch: true
       AvailabilityZone: !Select [1, !GetAZs '']
       Tags: [{ Key: Name, Value: !Sub '${StackNamePrefix}-public-b' }]
-
-  EIPA:
-    Type: AWS::EC2::EIP
-    Properties: { Domain: vpc }
-  NATGW:
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId: !GetAtt EIPA.AllocationId
-      SubnetId: !Ref PublicSubnetA
 
   PrivateAppSubnetA:
     Type: AWS::EC2::Subnet
@@ -100,12 +91,6 @@ Resources:
   PrivateAppRT:
     Type: AWS::EC2::RouteTable
     Properties: { VpcId: !Ref VPC }
-  PrivateAppRoute:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref PrivateAppRT
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NATGW
   PrivateAppAssocA:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties: { SubnetId: !Ref PrivateAppSubnetA, RouteTableId: !Ref PrivateAppRT }

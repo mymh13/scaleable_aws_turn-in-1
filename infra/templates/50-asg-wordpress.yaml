@@ -1,16 +1,34 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: WordPress web tier (ASG) (scaffold)
+Description: WordPress app tier - steg 1 - App Security Group
 
 Parameters:
-  StackNamePrefix: { Type: String }
-  VpcId: { Type: String }
-  PrivateAppSubnetIds: { Type: CommaDelimitedList }
-  TargetGroupArn: { Type: String }
-  EfsFileSystemId: { Type: String }
-  DBEndpoint: { Type: String }
-  DBName: { Type: String }
-  DBUsername: { Type: String }
-  DBPassword: { Type: String, NoEcho: true }
+  StackNamePrefix:
+    Type: String
+  VpcId:
+    Type: String
+  AlbSecurityGroupId:
+    Type: String
+    Description: SG-ID för ALB (källa för HTTP-ingress)
 
-Resources: {}
-Outputs: {}
+Resources:
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: App SG - tillåt HTTP endast från ALB-SG
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref AlbSecurityGroupId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${StackNamePrefix}-app-sg'
+
+Outputs:
+  AppSecurityGroupId:
+    Value: !Ref AppSecurityGroup
+    Description: SG-ID för WordPress-instanser

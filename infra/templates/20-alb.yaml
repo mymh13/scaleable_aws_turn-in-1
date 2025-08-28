@@ -42,6 +42,15 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${StackNamePrefix}-alb-sg'
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
 
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -65,3 +74,9 @@ Outputs:
   AlbDNS:
     Value: !GetAtt ALB.DNSName
     Description: Publik DNS för ALB
+  ListenerArn:
+    Value: !Ref HttpListener
+    Description: ARN för HTTP-listener (port 80 → Target Group)
+  AlbSecurityGroupId:
+    Value: !Ref AlbSecurityGroup
+    Description: Security Group ID för ALB

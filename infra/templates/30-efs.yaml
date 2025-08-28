@@ -1,10 +1,65 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: EFS filesystem + mount targets (scaffold)
+Description: EFS - stegvis bygge (börjar med SG)
 
 Parameters:
-  StackNamePrefix: { Type: String }
-  VpcId: { Type: String }
-  PrivateAppSubnetIds: { Type: CommaDelimitedList }
+  StackNamePrefix:
+    Type: String
+  VpcId:
+    Type: String
+  PrivateAppSubnetIds:
+    Type: CommaDelimitedList
+    Description: Privata app-subnät (2 st) där vi sätter Mount Targets
+  AppSecurityGroupId:
+    Type: String
+    Description: SG-ID för app-instanser (tillåts mot EFS på port 2049)
 
-Resources: {}
-Outputs: {}
+Resources:
+  EfsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: EFS SG - tillåt NFS (2049) endast från App-SG
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          SourceSecurityGroupId: !Ref AppSecurityGroupId
+      Tags:
+        - Key: Name
+          Value: !Sub '${StackNamePrefix}-efs-sg'
+  FileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      Encrypted: true
+      PerformanceMode: generalPurpose
+      ThroughputMode: bursting
+      BackupPolicy:
+        Status: DISABLED         # labb: enkelt teardown
+      FileSystemTags:
+        - Key: Name
+          Value: !Sub '${StackNamePrefix}-efs'
+  MountTargetA:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystem
+      SubnetId: !Select [0, !Ref PrivateAppSubnetIds]
+      SecurityGroups:
+        - !Ref EfsSecurityGroup
+  MountTargetB:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystem
+      SubnetId: !Select [1, !Ref PrivateAppSubnetIds]
+      SecurityGroups:
+        - !Ref EfsSecurityGroup
+
+Outputs:
+  EfsSecurityGroupId:
+    Value: !Ref EfsSecurityGroup
+    Description: SG-ID för EFS (används av FileSystem/MountTargets)
+FileSystemId:
+    Value: !Ref FileSystem
+    Description: EFS FileSystem ID
+MountTargetIds:
+    Value: !Join [",", [!Ref MountTargetA, !Ref MountTargetB]] # returnerar IDt, slår ihop till lista
+    Description: Mount Target resource IDs (en per app-subnät)

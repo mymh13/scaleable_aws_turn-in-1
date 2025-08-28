@@ -55,6 +55,16 @@ Resources:
         StackNamePrefix:    !Ref StackNamePrefix
         VpcId:              !GetAtt NetworkStack.Outputs.VpcId
         AlbSecurityGroupId: !GetAtt AlbStack.Outputs.AlbSecurityGroupId
+  EfsStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: AsgStack
+    Properties:
+      TemplateURL: !Sub 'https://s3.${AWS::Region}.amazonaws.com/${TemplateBucket}/${TemplatePrefix}30-efs.yaml'
+      Parameters:
+        StackNamePrefix:     !Ref StackNamePrefix
+        VpcId:               !GetAtt NetworkStack.Outputs.VpcId
+        PrivateAppSubnetIds: !GetAtt NetworkStack.Outputs.PrivateAppSubnetIds
+        AppSecurityGroupId:  !GetAtt AsgStack.Outputs.AppSecurityGroupId
 
 Outputs:
   VpcId:
@@ -79,3 +89,5 @@ Outputs:
   AppSecurityGroupId:
     Value: !GetAtt AsgStack.Outputs.AppSecurityGroupId
     Description: SG-ID för webbinstanser (används av LT/ASG, namnet hintar om det)
+  EfsSecurityGroupId:
+    Value: !GetAtt EfsStack.Outputs.EfsSecurityGroupId

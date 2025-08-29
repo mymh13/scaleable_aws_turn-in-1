@@ -52,9 +52,11 @@ Resources:
     Properties:
       TemplateURL: !Sub 'https://s3.${AWS::Region}.amazonaws.com/${TemplateBucket}/${TemplatePrefix}50-asg-wordpress.yaml'
       Parameters:
-        StackNamePrefix:    !Ref StackNamePrefix
-        VpcId:              !GetAtt NetworkStack.Outputs.VpcId
-        AlbSecurityGroupId: !GetAtt AlbStack.Outputs.AlbSecurityGroupId
+        StackNamePrefix:     !Ref StackNamePrefix
+        VpcId:               !GetAtt NetworkStack.Outputs.VpcId
+        AlbSecurityGroupId:  !GetAtt AlbStack.Outputs.AlbSecurityGroupId
+        PrivateAppSubnetIds: !GetAtt NetworkStack.Outputs.PrivateAppSubnetIds
+        TargetGroupArn:      !GetAtt AlbStack.Outputs.TargetGroupArn
   EfsStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: AsgStack

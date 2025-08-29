@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: WordPress app tier - steg 1 - App Security Group
+Description: WordPress app tier - stegvis bygge (börjar med parametrar)
 
 Parameters:
   StackNamePrefix:
@@ -9,6 +9,21 @@ Parameters:
   AlbSecurityGroupId:
     Type: String
     Description: SG-ID för ALB (källa för HTTP-ingress)
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues: [t3.micro, t3.small]
+    Description: EC2-instancs-typ för app-lagret
+  AmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64
+    Description: Senaste Amazon Linux 2023 AMI via SSM
+  PrivateAppSubnetIds:
+    Type: CommaDelimitedList
+    Description: Privata app-subnät (minst två AZ)
+  TargetGroupArn:
+    Type: String
+    Description: TargetGroup från 20-alb.yaml
 
 Resources:
   AppSecurityGroup:
@@ -27,6 +42,42 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${StackNamePrefix}-app-sg'
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${StackNamePrefix}-lt'
+      LaunchTemplateData:
+        ImageId: !Ref AmiId
+        InstanceType: !Ref InstanceType
+        SecurityGroupIds: [ !Ref AppSecurityGroup ]
+        MetadataOptions: { HttpTokens: required }
+        TagSpecifications:
+          - ResourceType: instance
+            Tags: [{ Key: Name, Value: !Sub '${StackNamePrefix}-app' }]
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -eux
+            mkdir -p /var/www/html
+            echo "<h1>ASG OK (utan EFS)</h1><p>Server: $(hostname -f)</p>" > /var/www/html/index.html
+            nohup python3 -m http.server 80 --directory /var/www/html >/var/log/http.server.log 2>&1 &
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: !Ref PrivateAppSubnetIds
+      MinSize: '1'
+      MaxSize: '2'
+      DesiredCapacity: '1'
+      TargetGroupARNs: [ !Ref TargetGroupArn ]
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 60
+      Tags:
+        - Key: Name
+          Value: !Sub '${StackNamePrefix}-asg'
+          PropagateAtLaunch: true
 
 Outputs:
   AppSecurityGroupId:

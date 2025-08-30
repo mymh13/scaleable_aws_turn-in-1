@@ -21,7 +21,7 @@ Parameters:
     Default: 10.20.0.0/24,10.20.1.0/24
   PrivateAppSubnetCidrs:
     Type: String
-    Default: 10.20.20.0/24, 10.20.21.0/24
+    Default: 10.20.20.0/24,10.20.21.0/24
   PrivateDbSubnetCidrs:
     Type: String
     Default: 10.20.20.0/24,10.20.21.0/24
@@ -57,16 +57,17 @@ Resources:
         AlbSecurityGroupId:  !GetAtt AlbStack.Outputs.AlbSecurityGroupId
         PrivateAppSubnetIds: !GetAtt NetworkStack.Outputs.PrivateAppSubnetIds
         TargetGroupArn:      !GetAtt AlbStack.Outputs.TargetGroupArn
+        FileSystemId:        !GetAtt EfsStack.Outputs.FileSystemId
   EfsStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: AsgStack
+    DependsOn: NetworkStack
     Properties:
       TemplateURL: !Sub 'https://s3.${AWS::Region}.amazonaws.com/${TemplateBucket}/${TemplatePrefix}30-efs.yaml'
       Parameters:
         StackNamePrefix:     !Ref StackNamePrefix
         VpcId:               !GetAtt NetworkStack.Outputs.VpcId
         PrivateAppSubnetIds: !GetAtt NetworkStack.Outputs.PrivateAppSubnetIds
-        AppSecurityGroupId:  !GetAtt AsgStack.Outputs.AppSecurityGroupId
+        PrivateAppSubnetCidrs:  !Ref PrivateAppSubnetCidrs
 
 Outputs:
   VpcId:

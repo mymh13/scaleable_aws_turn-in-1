@@ -45,14 +45,37 @@ Ibland är det absolut nödvändigt att följa en uppgiftsbeskrivning, och där 
 aws cloudformation validate-template --template-body file://infra/templates/root.yaml
 ```
   
-#### Create the stack:
+#### Create the stack (daily bring-up)
   
 ```bash
 aws cloudformation create-stack \
+  --region eu-west-1 \
   --stack-name wp-cf-root \
-  --template-url https://s3.eu-west-1.amazonaws.com/wordpress-iac-<account-id>-eu-west-1/wordpress-iac/templates/root.yaml \  
+  --template-url https://s3.eu-west-1.amazonaws.com/wordpress-iac-<account-id>-eu-west-1/wordpress-iac/templates/root.yaml \
   --parameters file://infra/parameters/dev.params.json
   ```
+
+#### Update the stack (apply new template changes)
+  
+```bash
+aws cloudformation update-stack \
+  --region eu-west-1 \
+  --stack-name wp-cf-root \
+  --template-url https://s3.eu-west-1.amazonaws.com/wordpress-iac-<account-id>-eu-west-1/wordpress-iac/templates/root.yaml \
+  --parameters file://infra/parameters/dev.params.json
+  ```
+
+#### Cleaning up the stacks (daily teardown)
+
+```bash
+aws cloudformation delete-stack \
+  --region eu-west-1 \
+  --stack-name wp-cf-root
+
+aws cloudformation wait stack-delete-complete \
+  --region eu-west-1 \
+  --stack-name wp-cf-root
+```
 
 ---
   

@@ -9,9 +9,9 @@ Parameters:
   PrivateAppSubnetIds:
     Type: CommaDelimitedList
     Description: Privata app-subnät (2 st) där vi sätter Mount Targets
-  AppSecurityGroupId:
-    Type: String
-    Description: SG-ID för app-instanser (tillåts mot EFS på port 2049)
+  PrivateAppSubnetCidrs:
+    Type: CommaDelimitedList
+    Description: CIDR för app-subnäten (t.ex. 10.20.10.0/24,10.20.11.0/24)
 
 Resources:
   EfsSecurityGroup:
@@ -23,7 +23,11 @@ Resources:
         - IpProtocol: tcp
           FromPort: 2049
           ToPort: 2049
-          SourceSecurityGroupId: !Ref AppSecurityGroupId
+          CidrIp: !Select [0, !Ref PrivateAppSubnetCidrs]
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          CidrIp: !Select [1, !Ref PrivateAppSubnetCidrs]
       Tags:
         - Key: Name
           Value: !Sub '${StackNamePrefix}-efs-sg'

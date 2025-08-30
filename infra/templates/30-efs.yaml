@@ -57,9 +57,9 @@ Outputs:
   EfsSecurityGroupId:
     Value: !Ref EfsSecurityGroup
     Description: SG-ID för EFS (används av FileSystem/MountTargets)
-FileSystemId:
+  FileSystemId:
     Value: !Ref FileSystem
     Description: EFS FileSystem ID
-MountTargetIds:
+  MountTargetIds:
     Value: !Join [",", [!Ref MountTargetA, !Ref MountTargetB]] # returnerar IDt, slår ihop till lista
     Description: Mount Target resource IDs (en per app-subnät)

@@ -24,6 +24,9 @@ Parameters:
   TargetGroupArn:
     Type: String
     Description: TargetGroup från 20-alb.yaml
+  FileSystemId:
+    Type: String
+    Description: EFS FileSystemId att montera på instanserna
 
 Resources:
   AppSecurityGroup:
@@ -63,6 +66,13 @@ Resources:
             nohup python3 -m http.server 80 --directory /var/www/html >/var/log/http.server.log 2>&1 &
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
+    UpdatePolicy:
+      AutoScalingReplacingUpdate:
+        WillReplace: false
+      AutoScalingRollingUpdate:
+        MinInstancesInService: '0'
+        MaxBatchSize: '1'
+        PauseTime: PT2M
     Properties:
       VPCZoneIdentifier: !Ref PrivateAppSubnetIds
       MinSize: '1'

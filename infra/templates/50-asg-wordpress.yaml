@@ -32,7 +32,7 @@ Resources:
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: App SG - tillåt HTTP endast från ALB-SG
+      GroupDescription: App SG - allow HTTP only from ALB-SG
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp

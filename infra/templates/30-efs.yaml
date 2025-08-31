@@ -17,7 +17,7 @@ Resources:
   EfsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: EFS SG - tillåt NFS (2049) endast från App-SG
+      GroupDescription: allow NFS (2049) from app subnets
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp

@@ -29,7 +29,7 @@ Resources:
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: ALB SG - tillåt HTTP från Internet
+      GroupDescription: ALB SG - allow HTTP from Internet
       VpcId: !Ref VpcId
       SecurityGroupIngress: # Intrafik till ALB, publikt internet
         - IpProtocol: tcp

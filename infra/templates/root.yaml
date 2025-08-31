@@ -72,11 +72,22 @@ Resources:
     Type: AWS::CloudFormation::Stack
     DependsOn: AsgStack
     Properties:
-      TemplateUrl: !Sub 'https://${TemplateBucket}.s3.${AWS::Region}.amazonaws.com/${TemplatePrefix}40-db-sg.yaml'
+      TemplateURL: !Sub 'https://s3.${AWS::Region}.amazonaws.com/${TemplateBucket}/${TemplatePrefix}40-db-sg.yaml'
       Parameters:
         StackNamePrefix:      !Ref StackNamePrefix
         VpcId:                !GetAtt NetworkStack.Outputs.VpcId
         AppSecurityGroupId:   !GetAtt AsgStack.Outputs.AppSecurityGroupId
+  DbEc2Stack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: DbStack
+    Properties:
+      TemplateURL: !Sub 'https://s3.${AWS::Region}.amazonaws.com/${TemplateBucket}/${TemplatePrefix}45-db-mariadb-ec2.yaml'
+      Parameters:
+        StackNamePrefix:      !Ref StackNamePrefix
+        VpcId:                !GetAtt NetworkStack.Outputs.VpcId
+        PrivateDbSubnetIds:   !GetAtt NetworkStack.Outputs.PrivateDbSubnetIds
+        DbSecurityGroupId:    !GetAtt DbStack.Outputs.DbSecurityGroupId
+        # Instance/AmiId is left out to use template-defaults
 
 Outputs:
   VpcId:
@@ -105,3 +116,5 @@ Outputs:
     Value: !GetAtt EfsStack.Outputs.EfsSecurityGroupId
   DbSecurityGroupId:
     Value: !GetAtt DbStack.Outputs.DbSecurityGroupId
+  DbPrivateIp:
+    Value: !GetAtt DbEc2Stack.Outputs.DbPrivateIp

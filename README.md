@@ -52,7 +52,8 @@ aws cloudformation create-stack \
   --region eu-west-1 \
   --stack-name wp-cf-root \
   --template-url https://s3.eu-west-1.amazonaws.com/wordpress-iac-<account-id>-eu-west-1/wordpress-iac/templates/root.yaml \
-  --parameters file://infra/parameters/dev.params.json
+  --parameters file://infra/parameters/dev.params.json \
+  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
   ```
 
 #### Update the stack (apply new template changes)
@@ -62,7 +63,8 @@ aws cloudformation update-stack \
   --region eu-west-1 \
   --stack-name wp-cf-root \
   --template-url https://s3.eu-west-1.amazonaws.com/wordpress-iac-<account-id>-eu-west-1/wordpress-iac/templates/root.yaml \
-  --parameters file://infra/parameters/dev.params.json
+  --parameters file://infra/parameters/dev.params.json \
+  --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
   ```
 
 #### Cleaning up the stacks (daily teardown)

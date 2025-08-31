@@ -1,12 +1,12 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: MariaDB on EC2 (skeleton - we will add resources step by step)
+Description: MariaDB on EC2 (minimal step, IAM role + one instance in private DB subnet)
 
 Parameters:
   StackNamePrefix: { Type: String }
   VpcId:           { Type: String }
   PrivateDbSubnetIds:
     Type: CommaDelimitedList
-    Description: Two private DB subnets
+    Description: Two private DB subnets (we will place the instance in the first)
   DbSecurityGroupId:
     Type: String
     Description: SG-ID from 40-db-sg.yaml
@@ -14,9 +14,68 @@ Parameters:
     Type: String
     Default: t3.micro
     AllowedValues: [t3.micro, t3.small]
+    Description: EC2 type for MariaDB
   AmiId:
     Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64
+    Description: Amazon Linux 2023
 
-Resources: {}
-Outputs: {}
+Resources:
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Name
+          Value: !Sub '${StackNamePrefix}-db-role'
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [ !Ref InstanceRole ]
+
+  DbInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      SubnetId: !Select [0, !Ref PrivateDbSubnetIds]
+      SecurityGroupIds: [ !Ref DbSecurityGroupId ]
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            DeleteOnTermination: true
+      MetadataOptions: { HttpTokens: required }
+      Tags:
+        - Key: Name
+          Value: !Sub '${StackNamePrefix}-db-ec2'
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -eux
+          dnf -y update
+          dnf -y install mariadb105-server
+          systemctl enable --now mariadb
+          # Minimal hälsosida på port 3306 via mysqladmin ping (för manuell test via SSM)
+          echo "MariaDB started on $(hostname -f)" > /etc/motd
+
+Outputs:
+  DbInstanceId:
+    Value: !Ref DbInstance
+    Description: EC2 instance ID for MariaDB
+  DbPrivateIp:
+    Value: !GetAtt DbInstance.PrivateIp
+    Description: Private IP of the DB instance
+  DbAz:
+    Value: !GetAtt DbInstance.AvailabilityZone
+    Description: AZ of the DB instance

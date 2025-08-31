@@ -18,7 +18,7 @@ Resources:
   DbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDecription: DB SG - allow 3306 from App-SG
+      GroupDescription: DB SG - allow 3306 from App-SG
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp

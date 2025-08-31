@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: MariaDB on EC2 (skeleton - we will add resources step by step)
+
+Parameters:
+  StackNamePrefix: { Type: String }
+  VpcId:           { Type: String }
+  PrivateDbSubnetIds:
+    Type: CommaDelimitedList
+    Description: Two private DB subnets
+  DbSecurityGroupId:
+    Type: String
+    Description: SG-ID from 40-db-sg.yaml
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues: [t3.micro, t3.small]
+  AmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64
+
+Resources: {}
+Outputs: {}

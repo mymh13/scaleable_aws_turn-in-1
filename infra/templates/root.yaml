@@ -83,13 +83,12 @@ Resources:
         PrivateAppSubnetCidrs:  !Ref PrivateAppSubnetCidrs
   DbStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: AsgStack
     Properties:
       TemplateURL: !Sub 'https://s3.${AWS::Region}.amazonaws.com/${TemplateBucket}/${TemplatePrefix}40-db-sg.yaml'
       Parameters:
-        StackNamePrefix:      !Ref StackNamePrefix
-        VpcId:                !GetAtt NetworkStack.Outputs.VpcId
-        AppSecurityGroupId:   !GetAtt AsgStack.Outputs.AppSecurityGroupId
+        StackNamePrefix:        !Ref StackNamePrefix
+        VpcId:                  !GetAtt NetworkStack.Outputs.VpcId
+        PrivateAppSubnetCidrs:  !Ref PrivateAppSubnetCidrs
   DbEc2Stack:
     Type: AWS::CloudFormation::Stack
     DependsOn: DbStack

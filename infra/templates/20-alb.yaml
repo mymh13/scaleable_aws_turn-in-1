@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: ALB + Target Group + (senare) Security Groups och Listener – stegvis bygge
+Description: ALB + Target Group + Security Groups and Listener
 
 Parameters:
   StackNamePrefix:

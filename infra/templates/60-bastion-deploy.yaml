@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Bastion/Deploy VM (scaffold)
+Description: Bastion/Deploy VM (scaffold, not completely decided it will be used)
 
 Parameters:
   StackNamePrefix: { Type: String }

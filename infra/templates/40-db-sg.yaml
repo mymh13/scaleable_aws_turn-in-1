@@ -1,30 +1,34 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: DB Security Group - allow MySQL/MariaDB only from App-SG
+Description: DB Security Group - allow MySQL/MariaDB (3306) from private app subnets
 
 Parameters:
   StackNamePrefix:
     Type: String
   VpcId:
     Type: String
-  AppSecurityGroupId:
-    Type: String
-    Description: SG-ID for app instances (allowed inbound on 3306)
-  # PrivateDbSubnetIds: { Type: CommaDelimitedList }
-  # DBName: { Type: String }
-  # DBUsername: { Type: String }
-  # DBPassword: { Type: String, NoEcho: true }
+  PrivateAppSubnetCidrs:
+    Type: CommaDelimitedList
 
 Resources:
   DbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: DB SG - allow 3306 from App-SG
+      GroupDescription: DB SG - allow 3306 from private app subnets
       VpcId: !Ref VpcId
       SecurityGroupIngress:
+        # App-subnet A
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
-          SourceSecurityGroupId: !Ref AppSecurityGroupId
+          CidrIp: !Select [0, !Ref PrivateAppSubnetCidrs]
+        # App-subnet B
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: !Select [1, !Ref PrivateAppSubnetCidrs]
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
           Value: !Sub '${StackNamePrefix}-db-sg'

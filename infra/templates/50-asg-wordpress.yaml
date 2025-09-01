@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: WordPress app tier - stegvis bygge (börjar med parametrar)
+Description: WordPress app tier - building this incrementally
 
 Parameters:
   StackNamePrefix: { Type: String }

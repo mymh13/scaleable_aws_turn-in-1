@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: VPC med 2x public, 2x private app, 2x private db subnets, IGW, routing
+Description: VPC with 2x public, 2x private app, 2x private db subnets, IGW, NAT, routing
 
 Parameters:
   StackNamePrefix: { Type: String }
@@ -72,6 +72,7 @@ Resources:
       AvailabilityZone: !Select [1, !GetAZs '']
       Tags: [{ Key: Name, Value: !Sub '${StackNamePrefix}-db-b' }]
 
+  # Public routing
   PublicRT:
     Type: AWS::EC2::RouteTable
     Properties: { VpcId: !Ref VPC }
@@ -88,6 +89,7 @@ Resources:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties: { SubnetId: !Ref PublicSubnetB, RouteTableId: !Ref PublicRT }
 
+  # Private route tables, one per zone-pair
   PrivateAppRT:
     Type: AWS::EC2::RouteTable
     Properties: { VpcId: !Ref VPC }
@@ -107,6 +109,37 @@ Resources:
   PrivateDbAssocB:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties: { SubnetId: !Ref PrivateDbSubnetB, RouteTableId: !Ref PrivateDbRT }
+
+  # NAT + default routes for private subnets
+  NatEip:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+    DependsOn: IGWAttachment
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEip.AllocationId
+      SubnetId: !Ref PublicSubnetA
+      Tags:
+        - Key: Name
+          Value: !Sub '${StackNamePrefix}-nat-gw'
+    DependsOn: IGWAttachment
+
+  PrivateAppDefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateAppRT
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateDbDefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateDbRT
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
 
 Outputs:
   VpcId:

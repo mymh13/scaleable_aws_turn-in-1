@@ -2,10 +2,8 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: WordPress app tier - stegvis bygge (börjar med parametrar)
 
 Parameters:
-  StackNamePrefix:
-    Type: String
-  VpcId:
-    Type: String
+  StackNamePrefix: { Type: String }
+  VpcId: { Type: String }
   AlbSecurityGroupId:
     Type: String
     Description: SG-ID för ALB (källa för HTTP-ingress)
@@ -27,6 +25,14 @@ Parameters:
   FileSystemId:
     Type: String
     Description: EFS FileSystemId att montera på instanserna
+  DbEndpoint: { Type: String }
+  DbName: { Type: String }
+  DbUser:
+    Type: String
+    Default: wp_user
+  DbPassword:
+    Type: String
+    NoEcho: true
 
 Resources:
   AppSecurityGroup:
@@ -66,38 +72,52 @@ Resources:
             PKG="yum"; command -v dnf >/dev/null 2>&1 && PKG="dnf"
 
             $PKG -y update
-            $PKG -y install httpd php amazon-efs-utils nfs-utils || $PKG -y install httpd amazon-efs-utils nfs-utils
+            $PKG -y install httpd php php-mysqlnd amazon-efs-utils nfs-utils curl tar unzip || \
+              $PKG -y install httpd amazon-efs-utils nfs-utils curl tar unzip
 
             systemctl enable httpd
 
-            # --- EFS mount ---
+            # --- EFS mount (shared wp-content) ---
             mkdir -p /mnt/efs
-            # fstab-rad (TLS på EFS)
             if ! grep -q "${FileSystemId}.efs.${AWS::Region}.amazonaws.com:/" /etc/fstab; then
               echo "${FileSystemId}.efs.${AWS::Region}.amazonaws.com:/ /mnt/efs efs _netdev,tls 0 0" >> /etc/fstab
             fi
             mount -a
-
-            # Säkerställ delad wp-content på EFS
             mkdir -p /mnt/efs/wp-content
             chown -R apache:apache /mnt/efs/wp-content
 
-            # Webroot + hälsosida
+            # --- Web root ---
             mkdir -p /var/www/html
-            cat >/var/www/html/index.php <<'PHP'
-            <?php
-              header('Content-Type: text/plain');
-              echo "OK from " . gethostname() . "\n";
-            ?>
-            PHP
 
-            # Symlänk wp-content -> EFS (idempotent)
+            # Health-sida (lämna kvar, men WordPress tar över index.php)
+            echo "<?php header('Content-Type: text/plain'); echo 'OK from ' . gethostname() . \"\\n\"; ?>" > /var/www/html/health.php
+
+            # --- Fetch and deploy WordPress ---
+            TMP=/tmp/wp.$$; mkdir -p $TMP
+            curl -L -o $TMP/wordpress.tar.gz https://wordpress.org/latest.tar.gz
+            tar -xzf $TMP/wordpress.tar.gz -C $TMP
+            rsync -a $TMP/wordpress/ /var/www/html/
+
+            # Symlink wp-content -> EFS, idempotent
             if [ -d /var/www/html/wp-content ] && [ ! -L /var/www/html/wp-content ]; then
               rm -rf /var/www/html/wp-content
             fi
             ln -sfn /mnt/efs/wp-content /var/www/html/wp-content
 
+            # --- wp-config, copy sample and update with our data ---
+            cp /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
+            sed -i "s/database_name_here/${DbName}/" /var/www/html/wp-config.php
+            sed -i "s/username_here/${DbUser}/" /var/www/html/wp-config.php
+            sed -i "s/password_here/${DbPassword}/" /var/www/html/wp-config.php
+            sed -i "s/localhost/${DbEndpoint}/" /var/www/html/wp-config.php
+            echo "define('FS_METHOD','direct');" >> /var/www/html/wp-config.php
+            # Salter (om internet tillåts; annars hoppa över)
+            curl -s https://api.wordpress.org/secret-key/1.1/salt/ >> /var/www/html/wp-config.php || true
+
             chown -R apache:apache /var/www/html
+            find /var/www/html -type d -exec chmod 755 {} \;
+            find /var/www/html -type f -exec chmod 644 {} \;
+
             systemctl restart httpd
 
   AutoScalingGroup:

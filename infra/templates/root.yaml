@@ -25,6 +25,15 @@ Parameters:
   PrivateDbSubnetCidrs:
     Type: String
     Default: 10.20.20.0/24,10.20.21.0/24
+  DbName:
+    Type: String
+    Default: wordpress
+  DbUser:
+    Type: String
+    Default: wp_user
+  DbPassword:
+    Type: String
+    NoEcho: true
 
 Resources:
   NetworkStack:
@@ -58,6 +67,10 @@ Resources:
         PrivateAppSubnetIds: !GetAtt NetworkStack.Outputs.PrivateAppSubnetIds
         TargetGroupArn:      !GetAtt AlbStack.Outputs.TargetGroupArn
         FileSystemId:        !GetAtt EfsStack.Outputs.FileSystemId
+        DbEndpoint:          !GetAtt DbEc2Stack.Outputs.DbPrivateIp
+        DbName:              !Ref DbName
+        DbUser:              !Ref DbUser
+        DbPassword:          !Ref DbPassword
   EfsStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: NetworkStack

@@ -26,5 +26,17 @@
     {
         "ParameterKey": "PrivateDbSubnetCidrs",
         "ParameterValue": "10.20.20.0/24,10.20.21.0/24"
+    },
+    {
+        "ParameterKey": "DbName",
+        "ParameterValue": "wordpress-db-name"
+    },
+    {
+        "ParameterKey": "DbUser",
+        "ParameterValue": "wp_username-here"
+    },
+    {
+        "ParameterKey": "DbPassword",
+        "ParameterValue": "SUPER_STRONG_PASSWORD"
     }
 ]

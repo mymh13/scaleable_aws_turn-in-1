@@ -33,6 +33,9 @@ Parameters:
   DbPassword:
     Type: String
     NoEcho: true
+  ForceUpdateToken: # Dummy: sub the value between v1/v2 when the ASG-stack needs to be force rebooted
+    Type: String
+    Default: v1
 
 Resources:
   AppSecurityGroup:
@@ -118,23 +121,27 @@ Resources:
             find /var/www/html -type d -exec chmod 755 {} \;
             find /var/www/html -type f -exec chmod 644 {} \;
 
+            echo "OK" > /var/www/html/health.html
+
             systemctl restart httpd
 
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     UpdatePolicy:
-      AutoScalingReplacingUpdate:
-        WillReplace: false
-      AutoScalingRollingUpdate:
-        MinInstancesInService: '0'
-        MaxBatchSize: '1'
-        PauseTime: PT2M
+        AutoScalingRollingUpdate:
+          MinInstancesInService: 0
+          MaxBatchSize: 1
+          PauseTime: PT2M
+        AutoScalingReplacingUpdate:
+          WillReplace: false
+
     Properties:
       VPCZoneIdentifier: !Ref PrivateAppSubnetIds
-      MinSize: '1'
-      MaxSize: '2'
-      DesiredCapacity: '1'
-      TargetGroupARNs: [ !Ref TargetGroupArn ]
+      MinSize: 1
+      MaxSize: 2
+      DesiredCapacity: 1
+      TargetGroupARNs:
+        - !Ref TargetGroupArn
       LaunchTemplate:
         LaunchTemplateId: !Ref LaunchTemplate
         Version: !GetAtt LaunchTemplate.LatestVersionNumber

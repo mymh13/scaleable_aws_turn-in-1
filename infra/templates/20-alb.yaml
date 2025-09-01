@@ -26,6 +26,7 @@ Resources:
       LoadBalancerAttributes:
         - Key: deletion_protection.enabled
           Value: "false"    # utvecklingsfasen: lättare att riva stacken
+          
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -60,7 +61,9 @@ Resources:
       Protocol: HTTP
       Port: 80
       TargetType: instance
-      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: traffic-port
+      HealthCheckPath: /health.html
       Matcher:
         HttpCode: '200-399'
 

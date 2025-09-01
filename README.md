@@ -45,6 +45,18 @@ Ibland är det absolut nödvändigt att följa en uppgiftsbeskrivning, och där 
 aws cloudformation validate-template --template-body file://infra/templates/root.yaml
 ```
   
+#### Upload the templates to S3
+  
+```bash
+aws s3 cp infra/templates/00-network.yaml     s3://$TemplateBucket/${TemplatePrefix}00-network.yaml
+aws s3 cp infra/templates/20-alb.yaml        s3://$TemplateBucket/${TemplatePrefix}20-alb.yaml
+aws s3 cp infra/templates/30-efs.yaml        s3://$TemplateBucket/${TemplatePrefix}30-efs.yaml
+aws s3 cp infra/templates/40-db-sg.yaml      s3://$TemplateBucket/${TemplatePrefix}40-db-sg.yaml
+aws s3 cp infra/templates/45-db-mariadb-ec2.yaml s3://$TemplateBucket/${TemplatePrefix}45-db-mariadb-ec2.yaml
+aws s3 cp infra/templates/50-asg-wordpress.yaml  s3://$TemplateBucket/${TemplatePrefix}50-asg-wordpress.yaml
+aws s3 cp infra/templates/root.yaml          s3://$TemplateBucket/${TemplatePrefix}root.yaml
+  ```
+
 #### Create the stack (daily bring-up)
   
 ```bash

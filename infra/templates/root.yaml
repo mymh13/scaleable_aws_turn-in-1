@@ -34,6 +34,9 @@ Parameters:
   DbPassword:
     Type: String
     NoEcho: true
+  ForceUpdateToken:
+    Type: String
+    Default: v1
 
 Resources:
   NetworkStack:
@@ -59,7 +62,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     DependsOn: AlbStack
     Properties:
-      TemplateURL: !Sub 'https://s3.${AWS::Region}.amazonaws.com/${TemplateBucket}/${TemplatePrefix}50-asg-wordpress.yaml'
+      TemplateURL: !Sub 'https://s3.${AWS::Region}.amazonaws.com/${TemplateBucket}/${TemplatePrefix}50-asg-wordpress-v2.yaml'
       Parameters:
         StackNamePrefix:     !Ref StackNamePrefix
         VpcId:               !GetAtt NetworkStack.Outputs.VpcId
@@ -71,6 +74,7 @@ Resources:
         DbName:              !Ref DbName
         DbUser:              !Ref DbUser
         DbPassword:          !Ref DbPassword
+        ForceUpdateToken:    !Ref ForceUpdateToken
   EfsStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: NetworkStack

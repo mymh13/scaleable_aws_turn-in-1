@@ -33,9 +33,9 @@ Parameters:
   DbPassword:
     Type: String
     NoEcho: true
-  ForceUpdateToken: # Dummy: sub the value between v1/v2 when the ASG-stack needs to be force rebooted
+  ForceUpdateToken: # Dummy: sub the value when the ASG-stack needs to be force rebooted
     Type: String
-    Default: v3
+    Default: v20
 
 Resources:
   AppSecurityGroup:
@@ -75,55 +75,55 @@ Resources:
             #!/bin/bash
             set -euxo pipefail
 
-            dnf -y update
-            dnf -y install httpd
+            # 0) Paket (AL2)
+            yum -y update
+            yum -y install httpd php php-mysqlnd php-json php-xml php-mbstring php-gd php-opcache php-curl php-zip
 
+            # 1) Växla MPM: event -> prefork (bäst för mod_php)
+            sed -i 's/^LoadModule mpm_event_module/#LoadModule mpm_event_module/' /etc/httpd/conf.modules.d/00-mpm.conf || true
+            if ! grep -q 'mpm_prefork_module' /etc/httpd/conf.modules.d/10-mpm_prefork.conf 2>/dev/null; then
+              echo 'LoadModule mpm_prefork_module modules/mod_mpm_prefork.so' > /etc/httpd/conf.modules.d/10-mpm_prefork.conf
+            fi
+
+            # 2) .htaccess (WP vänligt) + index.php prioritet
+            sed -i 's/^\s*AllowOverride\s\+None/AllowOverride All/' /etc/httpd/conf/httpd.conf || true
+            sed -i 's/DirectoryIndex .*/DirectoryIndex index.php index.html/' /etc/httpd/conf/httpd.conf || true
+
+            # 3) Testfiler
             mkdir -p /var/www/html
+            cat >/var/www/html/php-health.php <<'PHP'
+            <?php http_response_code(200); echo "OK"; ?>
+            PHP
 
-            # PHP + FPM
-            dnf -y install php php-fpm php-mysqlnd
+            cat >/var/www/html/info.php <<'PHP'
+            <?php phpinfo(); ?>
+            PHP
 
-            # Start/enable tjänster
-            systemctl enable --now php-fpm
-            systemctl enable --now httpd
+            # Mer förklarande DB-test med tydliga fel (TILLFÄLLIGT)
+            cat >/var/www/html/dbtest2.php <<'PHP'
+            <?php
+            error_reporting(E_ALL);
+            ini_set('display_errors', 1);
+            $host='${DbEndpoint}'; $db='${DbName}'; $user='${DbUser}'; $pass='${DbPassword}';
+            echo "HOST=".$host." DB=".$db."<br/>\n"; // ofarligt att visa host+db
+            mysqli_report(MYSQLI_REPORT_OFF);
+            $link = @mysqli_init();
+            if ($link === false) { http_response_code(500); die("MYSQLI INIT FAIL"); }
+            @mysqli_options($link, MYSQLI_OPT_CONNECT_TIMEOUT, 5);
+            if (!@mysqli_real_connect($link, $host, $user, $pass, $db)) {
+              http_response_code(500);
+              die("MYSQLI FAIL: ".mysqli_connect_error());
+            }
+            echo "MYSQLI OK";
+            mysqli_close($link);
+            PHP
 
-            # Skicka .php till php-fpm (unix socket)
-            cat >/etc/httpd/conf.d/php-fpm.conf <<'EOF'
-            <FilesMatch \.php$>
-                SetHandler "proxy:unix:/run/php-fpm/www.sock|fcgi://localhost/"
-            </FilesMatch>
-            EOF
-
-            # Använd index.php före index.html
-            cat >/etc/httpd/conf.d/php-index.conf <<'EOF'
-            <IfModule dir_module>
-                DirectoryIndex index.php index.html
-            </IfModule>
-            EOF
-
-            # Minimal PHP-sida för test
-            echo "<?php phpinfo(); ?>" > /var/www/html/info.php
-            chown apache:apache /var/www/html/info.php
-
-            # WP: nödvändiga PHP-paket (minimalt för att nå install-sidan)
-            dnf -y install php-json php-xml php-gd php-mbstring php-opcache php-curl php-zip
-
-            # Hämta och lägg ut WordPress
-            curl -L -o /tmp/wp.tar.gz https://wordpress.org/latest.tar.gz
-            tar -xzf /tmp/wp.tar.gz -C /tmp
-            rsync -a /tmp/wordpress/ /var/www/html/
-
-            # Se till att Apache äger filerna
             chown -R apache:apache /var/www/html
+            find /var/www/html -type d -exec chmod 755 {} \;
+            find /var/www/html -type f -exec chmod 644 {} \;
 
-            # Ta bort ev. index.html så index.php (WP) får gälla
-            rm -f /var/www/html/index.html
-
-            # Skapa uploads-katalog (behövs senare)
-            mkdir -p /var/www/html/wp-content/uploads
-            chown -R apache:apache /var/www/html/wp-content
-
-            # Ladda om Apache
+            # 4) Starta om Apache (med prefork)
+            systemctl enable --now httpd
             systemctl restart httpd
 
   AutoScalingGroup:

@@ -19,6 +19,15 @@ Parameters:
     Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64
     Description: Amazon Linux 2023
+  DbName: { Type: String }
+  DbUser:
+    Type: String
+    Default: wp_user
+  DbPassword:
+    Type: String
+    NoEcho: true
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
 
 Resources:
   InstanceRole:
@@ -49,6 +58,7 @@ Resources:
       IamInstanceProfile: !Ref InstanceProfile
       SubnetId: !Select [0, !Ref PrivateDbSubnetIds]
       SecurityGroupIds: [ !Ref DbSecurityGroupId ]
+      KeyName:        !Ref KeyPairName
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
@@ -63,11 +73,28 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           set -eux
+
           dnf -y update
           dnf -y install mariadb105-server
+
           systemctl enable --now mariadb
-          # Minimal hälsosida på port 3306 via mysqladmin ping (för manuell test via SSM)
-          echo "MariaDB started on $(hostname -f)" > /etc/motd
+
+          # Lyssna på privat IP (annars bara 127.0.0.1)
+          cat >/etc/my.cnf.d/bind.cnf <<'EOF'
+          [mysqld]
+          bind-address=0.0.0.0
+          EOF
+          systemctl restart mariadb
+
+          # Skapa DB + app-user (root via unix_socket)
+          mysql --protocol=socket -uroot <<SQL
+          CREATE DATABASE IF NOT EXISTS \`${DbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+          CREATE OR REPLACE USER '${DbUser}'@'%' IDENTIFIED BY '${DbPassword}';
+          GRANT ALL PRIVILEGES ON `${DbName}`.* TO '${DbUser}'@'%';
+          FLUSH PRIVILEGES;
+          SQL
+
+          echo "MariaDB ready on $(hostname -f)" > /etc/motd
 
 Outputs:
   DbInstanceId:

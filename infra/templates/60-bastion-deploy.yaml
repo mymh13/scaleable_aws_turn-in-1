@@ -1,17 +1,59 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Bastion/Deploy VM (scaffold, not completely decided it will be used)
+Description: Minimal Bastion host (public EC2 with SSH only)
 
 Parameters:
-  StackNamePrefix: { Type: String }
-  VpcId: { Type: String }
-  PublicSubnetId: { Type: String }
-  KeyPairName: { Type: AWS::EC2::KeyPair::KeyName }
-  AllowedSshCidr: { Type: String }
-  EfsFileSystemId: { Type: String }
-  DBEndpoint: { Type: String }
-  DBName: { Type: String }
-  DBUsername: { Type: String }
-  DBPassword: { Type: String, NoEcho: true }
+  StackNamePrefix: { Type: String, Default: wp-cf }
+  VpcId:           { Type: AWS::EC2::VPC::Id }
+  PublicSubnetId:  { Type: AWS::EC2::Subnet::Id }
+  KeyPairName:     { Type: AWS::EC2::KeyPair::KeyName }
+  AllowedSshCidr:  { Type: String, Description: "Your IP in CIDR, e.g. 1.2.3.4/32" }
 
-Resources: {}
-Outputs: {}
+  AmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    # Amazon Linux 2023
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Resources:
+  BastionSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub '${StackNamePrefix}-bastion-sg'
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AllowedSshCidr
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${StackNamePrefix}-bastion-sg'
+
+  BastionInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: t3.micro
+      KeyName: !Ref KeyPairName
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          SubnetId: !Ref PublicSubnetId
+          GroupSet: [ !Ref BastionSG ]
+          AssociatePublicIpAddress: true
+      MetadataOptions: { HttpTokens: required }
+      Tags:
+        - Key: Name
+          Value: !Sub "${StackNamePrefix}-bastion"
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          dnf -y update
+          systemctl enable --now sshd
+
+Outputs:
+  BastionPublicIp:        { Value: !GetAtt BastionInstance.PublicIp }
+  BastionPublicDns:       { Value: !GetAtt BastionInstance.PublicDnsName }
+  BastionSecurityGroupId: { Value: !Ref BastionSG }

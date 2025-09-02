@@ -34,9 +34,15 @@ Parameters:
   DbPassword:
     Type: String
     NoEcho: true
+  AllowedSshCidr:
+    Type: String
+    Description: "Your IP in CIDR for bastion SSH, e.g. 1.2.3.4/32"
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: "Name of existing EC2 key pair (without .pem), e.g. tinfoil-eu-west-1"
   ForceUpdateToken:
     Type: String
-    Default: v1
+    Default: v20
 
 Resources:
   NetworkStack:
@@ -104,6 +110,31 @@ Resources:
         PrivateDbSubnetIds:   !GetAtt NetworkStack.Outputs.PrivateDbSubnetIds
         DbSecurityGroupId:    !GetAtt DbStack.Outputs.DbSecurityGroupId
         # Instance/AmiId is left out to use template-defaults
+        DbName:               !Ref DbName
+        DbUser:               !Ref DbUser
+        DbPassword:           !Ref DbPassword
+        KeyPairName:          !Ref KeyPairName
+  BastionStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: NetworkStack
+    Properties:
+      TemplateURL: !Sub 'https://s3.${AWS::Region}.amazonaws.com/${TemplateBucket}/${TemplatePrefix}60-bastion-deploy.yaml'
+      Parameters:
+        StackNamePrefix: !Ref StackNamePrefix
+        VpcId:           !GetAtt NetworkStack.Outputs.VpcId
+        PublicSubnetId:  !Select [ 0, !Split [ ",", !GetAtt NetworkStack.Outputs.PublicSubnetIds ] ]
+        KeyPairName:     !Ref KeyPairName
+        AllowedSshCidr:  !Ref AllowedSshCidr
+
+  DbSshFromBastion:
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: [DbStack, BastionStack]
+    Properties:
+      GroupId: !GetAtt DbStack.Outputs.DbSecurityGroupId
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      SourceSecurityGroupId: !GetAtt BastionStack.Outputs.BastionSecurityGroupId
 
 Outputs:
   VpcId:
@@ -134,3 +165,9 @@ Outputs:
     Value: !GetAtt DbStack.Outputs.DbSecurityGroupId
   DbPrivateIp:
     Value: !GetAtt DbEc2Stack.Outputs.DbPrivateIp
+  BastionPublicIp:
+    Value: !GetAtt BastionStack.Outputs.BastionPublicIp
+    Description: Public IPv4 of bastion
+  BastionSecurityGroupId:
+    Value: !GetAtt BastionStack.Outputs.BastionSecurityGroupId
+    Description: SG of bastion (used as source in DB SG rule)

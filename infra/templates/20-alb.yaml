@@ -25,19 +25,19 @@ Resources:
       IpAddressType: ipv4
       LoadBalancerAttributes:
         - Key: deletion_protection.enabled
-          Value: "false"    # utvecklingsfasen: lättare att riva stacken
+          Value: "false"    # development phase: easier to tear down the stack
           
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: ALB SG - allow HTTP from Internet
       VpcId: !Ref VpcId
-      SecurityGroupIngress: # Intrafik till ALB, publikt internet
+      SecurityGroupIngress: # In-traffic to ALB, public Internet
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
-      SecurityGroupEgress: # Ut från ALB, IpProtocol: -1 betyder alla protokoll, alla portar
+      SecurityGroupEgress: # Out from ALB, IpProtocol: -1 means all protocol, all ports
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
       Tags:
@@ -63,7 +63,7 @@ Resources:
       TargetType: instance
       HealthCheckProtocol: HTTP
       HealthCheckPort: traffic-port
-      HealthCheckPath: /health.html
+      HealthCheckPath: / # could also become /health.html
       Matcher:
         HttpCode: '200-399'
 

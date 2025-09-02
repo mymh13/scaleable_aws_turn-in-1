@@ -35,7 +35,7 @@ Parameters:
     NoEcho: true
   ForceUpdateToken: # Dummy: sub the value between v1/v2 when the ASG-stack needs to be force rebooted
     Type: String
-    Default: v1
+    Default: v3
 
 Resources:
   AppSecurityGroup:
@@ -65,64 +65,65 @@ Resources:
         MetadataOptions: { HttpTokens: required }
         TagSpecifications:
           - ResourceType: instance
-            Tags: [{ Key: Name, Value: !Sub '${StackNamePrefix}-app' }]
+            Tags:
+              - Key: Name
+                Value: !Sub '${StackNamePrefix}-app'
+              - Key: ForceUpdateToken
+                Value: !Ref ForceUpdateToken
         UserData:
           Fn::Base64: !Sub |
-            #!/bin/bash -xe
-            exec > /var/log/userdata.log 2>&1
+            #!/bin/bash
+            set -euxo pipefail
 
-            # Paketmanager (AL2 = yum, AL2023 = dnf)
-            PKG="yum"; command -v dnf >/dev/null 2>&1 && PKG="dnf"
+            dnf -y update
+            dnf -y install httpd
 
-            $PKG -y update
-            $PKG -y install httpd php php-mysqlnd amazon-efs-utils nfs-utils curl tar unzip || \
-              $PKG -y install httpd amazon-efs-utils nfs-utils curl tar unzip
-
-            systemctl enable httpd
-
-            # --- EFS mount (shared wp-content) ---
-            mkdir -p /mnt/efs
-            if ! grep -q "${FileSystemId}.efs.${AWS::Region}.amazonaws.com:/" /etc/fstab; then
-              echo "${FileSystemId}.efs.${AWS::Region}.amazonaws.com:/ /mnt/efs efs _netdev,tls 0 0" >> /etc/fstab
-            fi
-            mount -a
-            mkdir -p /mnt/efs/wp-content
-            chown -R apache:apache /mnt/efs/wp-content
-
-            # --- Web root ---
             mkdir -p /var/www/html
 
-            # Health-sida (lämna kvar, men WordPress tar över index.php)
-            echo "<?php header('Content-Type: text/plain'); echo 'OK from ' . gethostname() . \"\\n\"; ?>" > /var/www/html/health.php
+            # PHP + FPM
+            dnf -y install php php-fpm php-mysqlnd
 
-            # --- Fetch and deploy WordPress ---
-            TMP=/tmp/wp.$$; mkdir -p $TMP
-            curl -L -o $TMP/wordpress.tar.gz https://wordpress.org/latest.tar.gz
-            tar -xzf $TMP/wordpress.tar.gz -C $TMP
-            rsync -a $TMP/wordpress/ /var/www/html/
+            # Start/enable tjänster
+            systemctl enable --now php-fpm
+            systemctl enable --now httpd
 
-            # Symlink wp-content -> EFS, idempotent
-            if [ -d /var/www/html/wp-content ] && [ ! -L /var/www/html/wp-content ]; then
-              rm -rf /var/www/html/wp-content
-            fi
-            ln -sfn /mnt/efs/wp-content /var/www/html/wp-content
+            # Skicka .php till php-fpm (unix socket)
+            cat >/etc/httpd/conf.d/php-fpm.conf <<'EOF'
+            <FilesMatch \.php$>
+                SetHandler "proxy:unix:/run/php-fpm/www.sock|fcgi://localhost/"
+            </FilesMatch>
+            EOF
 
-            # --- wp-config, copy sample and update with our data ---
-            cp /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
-            sed -i "s/database_name_here/${DbName}/" /var/www/html/wp-config.php
-            sed -i "s/username_here/${DbUser}/" /var/www/html/wp-config.php
-            sed -i "s/password_here/${DbPassword}/" /var/www/html/wp-config.php
-            sed -i "s/localhost/${DbEndpoint}/" /var/www/html/wp-config.php
-            echo "define('FS_METHOD','direct');" >> /var/www/html/wp-config.php
-            # Salter (om internet tillåts; annars hoppa över)
-            curl -s https://api.wordpress.org/secret-key/1.1/salt/ >> /var/www/html/wp-config.php || true
+            # Använd index.php före index.html
+            cat >/etc/httpd/conf.d/php-index.conf <<'EOF'
+            <IfModule dir_module>
+                DirectoryIndex index.php index.html
+            </IfModule>
+            EOF
 
+            # Minimal PHP-sida för test
+            echo "<?php phpinfo(); ?>" > /var/www/html/info.php
+            chown apache:apache /var/www/html/info.php
+
+            # WP: nödvändiga PHP-paket (minimalt för att nå install-sidan)
+            dnf -y install php-json php-xml php-gd php-mbstring php-opcache php-curl php-zip
+
+            # Hämta och lägg ut WordPress
+            curl -L -o /tmp/wp.tar.gz https://wordpress.org/latest.tar.gz
+            tar -xzf /tmp/wp.tar.gz -C /tmp
+            rsync -a /tmp/wordpress/ /var/www/html/
+
+            # Se till att Apache äger filerna
             chown -R apache:apache /var/www/html
-            find /var/www/html -type d -exec chmod 755 {} \;
-            find /var/www/html -type f -exec chmod 644 {} \;
 
-            echo "OK" > /var/www/html/health.html
+            # Ta bort ev. index.html så index.php (WP) får gälla
+            rm -f /var/www/html/index.html
 
+            # Skapa uploads-katalog (behövs senare)
+            mkdir -p /var/www/html/wp-content/uploads
+            chown -R apache:apache /var/www/html/wp-content
+
+            # Ladda om Apache
             systemctl restart httpd
 
   AutoScalingGroup:

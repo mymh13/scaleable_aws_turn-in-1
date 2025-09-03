@@ -42,7 +42,7 @@ Parameters:
     Description: "Name of existing EC2 key pair (without .pem), e.g. tinfoil-eu-west-1"
   ForceUpdateToken:
     Type: String
-    Default: v20
+    Default: v21
 
 Resources:
   NetworkStack:
@@ -81,6 +81,7 @@ Resources:
         DbUser:              !Ref DbUser
         DbPassword:          !Ref DbPassword
         ForceUpdateToken:    !Ref ForceUpdateToken
+        KeyPairName:         !Ref KeyPairName
   EfsStack:
     Type: AWS::CloudFormation::Stack
     DependsOn: NetworkStack

@@ -35,7 +35,8 @@ Parameters:
     NoEcho: true
   ForceUpdateToken: # Dummy: sub the value when the ASG-stack needs to be force rebooted
     Type: String
-    Default: v20
+    Default: v21
+  KeyPairName: { Type: AWS::EC2::KeyPair::KeyName }
 
 Resources:
   AppSecurityGroup:
@@ -74,57 +75,87 @@ Resources:
           Fn::Base64: !Sub |
             #!/bin/bash
             set -euxo pipefail
+            exec > >(tee -a /var/log/user-data.log) 2>&1
 
-            # 0) Paket (AL2)
-            yum -y update
-            yum -y install httpd php php-mysqlnd php-json php-xml php-mbstring php-gd php-opcache php-curl php-zip
-
-            # 1) Växla MPM: event -> prefork (bäst för mod_php)
-            sed -i 's/^LoadModule mpm_event_module/#LoadModule mpm_event_module/' /etc/httpd/conf.modules.d/00-mpm.conf || true
-            if ! grep -q 'mpm_prefork_module' /etc/httpd/conf.modules.d/10-mpm_prefork.conf 2>/dev/null; then
-              echo 'LoadModule mpm_prefork_module modules/mod_mpm_prefork.so' > /etc/httpd/conf.modules.d/10-mpm_prefork.conf
+            MARKER="/var/local/wp_bootstrapped"
+            if [ -f "$MARKER" ]; then
+              echo "[UserData] Already bootstrapped, exiting."
+              exit 0
             fi
 
-            # 2) .htaccess (WP vänligt) + index.php prioritet
-            sed -i 's/^\s*AllowOverride\s\+None/AllowOverride All/' /etc/httpd/conf/httpd.conf || true
-            sed -i 's/DirectoryIndex .*/DirectoryIndex index.php index.html/' /etc/httpd/conf/httpd.conf || true
+            # ---- Packages (Apache + PHP, no FPM) ----
+            dnf -y update
+            dnf -y install httpd php php-cli php-common php-mysqlnd php-json php-gd php-mbstring curl tar unzip
 
-            # 3) Testfiler
-            mkdir -p /var/www/html
-            cat >/var/www/html/php-health.php <<'PHP'
-            <?php http_response_code(200); echo "OK"; ?>
-            PHP
-
-            cat >/var/www/html/info.php <<'PHP'
-            <?php phpinfo(); ?>
-            PHP
-
-            # Mer förklarande DB-test med tydliga fel (TILLFÄLLIGT)
-            cat >/var/www/html/dbtest2.php <<'PHP'
-            <?php
-            error_reporting(E_ALL);
-            ini_set('display_errors', 1);
-            $host='${DbEndpoint}'; $db='${DbName}'; $user='${DbUser}'; $pass='${DbPassword}';
-            echo "HOST=".$host." DB=".$db."<br/>\n"; // ofarligt att visa host+db
-            mysqli_report(MYSQLI_REPORT_OFF);
-            $link = @mysqli_init();
-            if ($link === false) { http_response_code(500); die("MYSQLI INIT FAIL"); }
-            @mysqli_options($link, MYSQLI_OPT_CONNECT_TIMEOUT, 5);
-            if (!@mysqli_real_connect($link, $host, $user, $pass, $db)) {
-              http_response_code(500);
-              die("MYSQLI FAIL: ".mysqli_connect_error());
-            }
-            echo "MYSQLI OK";
-            mysqli_close($link);
-            PHP
-
-            chown -R apache:apache /var/www/html
-            find /var/www/html -type d -exec chmod 755 {} \;
-            find /var/www/html -type f -exec chmod 644 {} \;
-
-            # 4) Starta om Apache (med prefork)
             systemctl enable --now httpd
+            systemctl disable --now php-fpm || true
+
+            # ---- Web root ----
+            WEBROOT="/var/www/html"
+            mkdir -p "$WEBROOT"
+
+            # ---- Fetch WordPress if empty (or only default index) ----
+            if [ -z "$(ls -A $WEBROOT 2>/dev/null | grep -v '^index.html$')" ]; then
+              cd /tmp
+              curl -fsSL https://wordpress.org/latest.tar.gz -o wp.tar.gz
+              tar -xzf wp.tar.gz
+              rsync -a wordpress/ "$WEBROOT"/
+            fi
+
+            # ---- wp-config.php from parameters (create only if missing) ----
+            if [ ! -f "$WEBROOT/wp-config.php" ]; then
+              cat > "$WEBROOT/wp-config.php" <<'PHP'
+            <?php
+            define('DB_NAME',     '${DbName}');
+            define('DB_USER',     '${DbUser}');
+            define('DB_PASSWORD', '${DbPassword}');
+            define('DB_HOST',     '${DbEndpoint}');
+            define('DB_CHARSET',  'utf8');
+            define('DB_COLLATE',  '');
+            // Allow direct FS writes (we will move wp-content to EFS later)
+            if (!defined('FS_METHOD')) define('FS_METHOD', 'direct');
+            // Salts injected below
+            PHP
+
+              # Add salts
+              curl -fsSL https://api.wordpress.org/secret-key/1.1/salt/ >> "$WEBROOT/wp-config.php"
+
+              # Finish config
+              cat >> "$WEBROOT/wp-config.php" <<'PHP'
+            $table_prefix = 'wp_';
+            define('WP_DEBUG', false);
+            if ( !defined('ABSPATH') ) define('ABSPATH', __DIR__ . '/');
+            require_once ABSPATH . 'wp-settings.php';
+            PHP
+            fi
+
+            # ---- Health pages ----
+            cat > "$WEBROOT/php-health.php" <<'PHP'
+            <?php echo "OK: php ".PHP_VERSION; ?>
+            PHP
+
+            cat > "$WEBROOT/dbtest2.php" <<'PHP'
+            <?php
+              $host='${DbEndpoint}'; $db='${DbName}'; $user='${DbUser}'; $pass='${DbPassword}';
+              echo "HOST=$host DB=$db\n";
+              $mysqli = @new mysqli($host, $user, $pass, $db);
+              if ($mysqli->connect_errno) { echo "MYSQLI FAIL: {$mysqli->connect_error}"; exit; }
+              echo "MYSQLI OK";
+            ?>
+            PHP
+
+            # ---- Permissions ----
+            chown -R apache:apache "$WEBROOT"
+            find "$WEBROOT" -type d -exec chmod 755 {} \;
+            find "$WEBROOT" -type f -exec chmod 644 {} \;
+
+            # ---- Apache sane config ----
+            sed -i 's/^#ServerName.*/ServerName localhost/' /etc/httpd/conf/httpd.conf || true
             systemctl restart httpd
+
+            # ---- Done ----
+            touch "$MARKER"
+            echo "[UserData] Bootstrap complete."
 
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup

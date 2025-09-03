@@ -26,7 +26,8 @@ Ibland är det absolut nödvändigt att följa en uppgiftsbeskrivning, och där 
         00-network.yaml # VPC, subnets, IGW, NATGW, routes
         20-alb.yaml # ALB, Target Group, Listener, SG
         30-efs.yaml # EFS, Mount Targets, SG
-        40-rds-mariadb.yaml # DB Subnet Group, SG, MariaDB instance
+        40-db-sg.yaml # DB Subnet Group, SG
+        45-db-mariadb-ec2.yaml # 
         50-asg-wordpress.yaml # LT + ASG for LAMP/WordPress, SG, scaling policy
         60-bastion-deploy.yaml # Deploy/Bastion EC2 in public subnet (SSH), SG
     /parameters
@@ -89,13 +90,4 @@ aws cloudformation delete-stack \
 aws cloudformation wait stack-delete-complete \
   --region eu-west-1 \
   --stack-name wp-cf-root
-```
-
----
-  
-# IMPORTANT
-  
-Below is just a bash-template I use to copy-paste code into Word to keep the formatting. Ignore!
-```bash
-aws cloudformation validate-template --template-body file://infra/templates/20-alb.yaml
 ```
